@@ -28,15 +28,16 @@ __device__ __forceinline__ T warp_reduce(T value) {
  * @param cols Number of columns in the matrix.
  * @return The trace (sum of diagonal values) of the matrix.
  */
-template<typename T, const int BLOCK_SIZE = 1024>
+template<typename T, const int STRIDE = 1024, const int NUM_PER_WARP = 4>
 __global__ void trace_kernel(T *input, T *output, int cols, int n) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const int tid = threadIdx.x;
 
   T value = 0;
   #pragma unroll
-  for(size_t i = tid;i < n;i += BLOCK_SIZE) {
-    size_t idx = i * cols + i;
-    value += input[idx];
+  for(size_t i = 0;i < NUM_PER_WARP;i++) {
+    size_t x = idx + i * STRIDE;
+    if(x < n) value += input[x];
   }
   value = warp_reduce<T>(value);
   const int warpid = tid / 32;
@@ -62,9 +63,20 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   cudaMalloc((void**)(&output_d), sizeof(T));
   cudaMemcpy(input_d, h_input.data(), bytes, cudaMemcpyHostToDevice);
   size_t diagonal = min(rows, cols);
+  printf("diagonal: %d\n", diagonal);
   dim3 block(1024);
-  dim3 grid(1);
-  trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal);
+  int NUM_PER_WARP = 1;
+  int STRIDE = 1024;
+  if(diagonal <= 4096) {
+    dim3 grid(1);
+    STRIDE = 1024;
+    NUM_PER_WARP = CEIL(diagonal, 1024);
+  } else {
+    dim3 grid(CEIL(CEIL(diagonal, 4), 1024));
+    NUM_PER_WARP = 4;
+    STRIDE = 1024 * grid.x;
+  }
+  trace_kernel<T, STRIDE, NUM_PER_WARP><<<grid, block>>>(input_d, output_d, cols, diagonal);
   T *output_h = (T*)malloc(sizeof(T));
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
   return T((*output_h));
