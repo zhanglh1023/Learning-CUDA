@@ -67,12 +67,12 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   dim3 block(1024);
   int NUM_PER_WARP = 1;
   int STRIDE = 1024;
+  dim3 grid(1);
   if(diagonal <= 4096) {
-    dim3 grid(1);
     STRIDE = 1024;
     NUM_PER_WARP = CEIL(diagonal, 1024);
   } else {
-    dim3 grid(CEIL(CEIL(diagonal, 4), 1024));
+    grid.x = (CEIL(CEIL(diagonal, 4), 1024));
     NUM_PER_WARP = 4;
     STRIDE = 1024 * grid.x;
   }
