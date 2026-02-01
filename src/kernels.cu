@@ -3,6 +3,17 @@
 
 #include "../tester/utils.h"
 
+#define CEIL(N, M) (((N) + (M) - 1) / (M))
+#define WARP_SZIE 32
+
+template<typename T>
+__device__ __forceinline__ T warp_reduce(T value) {
+  #pragma unroll
+  for(size_t i = WARP_SZIE >> 1;i > 0;i >>= 1) {
+    value += __shfl_xor_sync(0xffffffff, value, i);
+  }
+  return value;
+}
 /**
  * @brief Computes the trace of a matrix.
  *
@@ -17,10 +28,46 @@
  * @param cols Number of columns in the matrix.
  * @return The trace (sum of diagonal values) of the matrix.
  */
+template<typename T, const int BLOCK_SIZE = 1024>
+__global__ void trace_kernel(T *input, T *output, int cols, int n) {
+  const int tid = threadIdx.x;
+
+  T value = 0;
+  #pragma unroll
+  for(size_t i = tid;i < n;i += BLOCK_SIZE) {
+    size_t idx = i * cols + i;
+    value += input[idx];
+  }
+  value = warp_reduce<T>(value);
+  const int warpid = tid / 32;
+  const int laneid = tid % 32;
+  __shared__ T smem[32];
+  if(laneid == 0) {
+    smem[warpid] = value;
+  }
+  __syncthreads();
+  if(warpid == 0) {
+    value = smem[laneid];
+    value = warp_reduce<T>(value);
+    if(laneid == 0) *output = value;
+  }
+}
 template <typename T>
 T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   // TODO: Implement the trace function
-  return T(-1);
+  size_t n = rows * cols;
+  size_t bytes = n * sizeof(T);
+  T *input_d, *output_d;
+  cudaMalloc((void**)(&input_d), bytes);
+  cudaMalloc((void**)(&output_d), sizeof(T));
+  cudaMemcpy(input_d, h_input.data(), bytes, cudaMemcpyHostToDevice);
+  size_t diagonal = min(rows, cols);
+  dim3 block(1024);
+  dim3 grid(1);
+  trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal);
+  T *output_h = (T*)malloc(sizeof(T));
+  cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
+  return T((*output_h));
 }
 
 /**
