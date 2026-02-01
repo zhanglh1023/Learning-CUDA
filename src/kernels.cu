@@ -65,18 +65,17 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   size_t diagonal = min(rows, cols);
   printf("diagonal: %d\n", diagonal);
   dim3 block(1024);
-  int NUM_PER_WARP = 1;
-  int STRIDE = 1024;
   dim3 grid(1);
   if(diagonal <= 4096) {
-    STRIDE = 1024;
-    NUM_PER_WARP = CEIL(diagonal, 1024);
+    const int STRIDE = 1024;
+    const int NUM_PER_WARP = CEIL(diagonal, 1024);
+    trace_kernel<T, STRIDE, NUM_PER_WARP><<<grid, block>>>(input_d, output_d, cols, diagonal);
   } else {
     grid.x = (CEIL(CEIL(diagonal, 4), 1024));
-    NUM_PER_WARP = 4;
-    STRIDE = 1024 * grid.x;
+    const int NUM_PER_WARP = 4;
+    const int STRIDE = 1024 * grid.x;
+    trace_kernel<T, STRIDE, NUM_PER_WARP><<<grid, block>>>(input_d, output_d, cols, diagonal);
   }
-  trace_kernel<T, STRIDE, NUM_PER_WARP><<<grid, block>>>(input_d, output_d, cols, diagonal);
   T *output_h = (T*)malloc(sizeof(T));
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
   return T((*output_h));
