@@ -37,7 +37,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   #pragma unroll
   for(size_t i = 0;i < NUM_PER_WARP;i++) {
     size_t x = idx + i * STRIDE;
-    if(x < n) value += input[x];
+    if(x < n) value += input[x * cols + x];
   }
   value = warp_reduce<T>(value);
   const int warpid = tid / 32;
@@ -50,7 +50,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   if(warpid == 0) {
     value = smem[laneid];
     value = warp_reduce<T>(value);
-    if(laneid == 0) *output = value;
+    if(laneid == 0) {atomicAdd(output, value);}
   }
 }
 template <typename T>
@@ -62,6 +62,9 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   cudaMalloc((void**)(&input_d), bytes);
   cudaMalloc((void**)(&output_d), sizeof(T));
   cudaMemcpy(input_d, h_input.data(), bytes, cudaMemcpyHostToDevice);
+  T *output_h = (T*)malloc(sizeof(T));
+  *output_h = 0;
+  cudaMemcpy(output_d, output_h, sizeof(T), cudaMemcpyHostToDevice);
   size_t diagonal = min(rows, cols);
   printf("diagonal: %d\n", diagonal);
   dim3 block(1024);
@@ -76,7 +79,6 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
     const int STRIDE = 1024 * grid.x;
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   }
-  T *output_h = (T*)malloc(sizeof(T));
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
   return T((*output_h));
 }
