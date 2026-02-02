@@ -22,6 +22,14 @@ __device__ __forceinline__ T warp_reduce_max(T value) {
   }
   return value;
 }
+template<>
+__device__ __forceinline__ double warp_reduce_max(double value) {
+  #pragma unroll
+  for(size_t i = WARP_SZIE >> 1;i > 0;i >>= 1) {
+    value = fmax(value, __shfl_xor_sync(0xffffffff, value, i));
+  }
+  return value;
+}
 /**
  * @brief Computes the trace of a matrix.
  *
