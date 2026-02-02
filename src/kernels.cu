@@ -166,7 +166,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     float expf_pre = expf(m_pre - m);
     float expf_now = expf(m_now - m);
     float l = l_pre * expf_pre + l_now * expf_now;
-    
+    float l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
     #pragma unroll
