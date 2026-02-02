@@ -134,7 +134,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     h_m = -__FLT_MAX__;
   }
   cudaMemcpy(d_l, h_o.data(), flat_bytes, cudaMemcpyHostToDevice);
-  cudaMemset(d_m, h_m, flat_bytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_m, h_m, flat_bytes, cudaMemcpyHostToDevice);
 
   size_t max_sram_bytes;
   cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
