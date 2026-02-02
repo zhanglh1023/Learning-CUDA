@@ -97,7 +97,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   const int bx = blockIdx.x;
   const int block_size = blockDim.x;
   const int head_id = blockIdx.y;
-  const int kv_head_id = head_id % (gridDim.y / kv_heads);
+  const int kv_head_id = head_id / (gridDim.y / kv_heads);
   const int batch_id = blockIdx.z;
   const int tid = threadIdx.x;
   const int tx = tid % Bc;
