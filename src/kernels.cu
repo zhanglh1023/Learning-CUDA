@@ -180,8 +180,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     sum *= static_cast<double>(scale);
     double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__DBL_MAX__;
     m_now = warp_reduce_max<double>(m_now);
-    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? safe_exp(sum - m_now) : 0.0;
-    double l_now = sum;
+    double sum_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? safe_exp(sum - m_now) : 0.0;
+    double l_now = sum_now;
     l_now = warp_reduce_sum<double>(l_now);
     
     double m_pre = s_m[ty];
@@ -196,7 +196,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     s_l[ty] = l;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      double value = sum * s_v[tx * dim + i];
+      double value = sum_now * s_v[tx * dim + i];
       value = warp_reduce_sum<double>(value);
       if(laneid == 0) 
         s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.0;
@@ -213,8 +213,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     int x = i % dim;
     int y = i / dim;
     if(q_acc_len + y < q_len) {
-        o[y * q_stride + x] = static_cast<T>(round(s_o[y * dim + x] * 1e12) / 1e12);
-        //o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
+        o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
     }
   }
 }
