@@ -173,8 +173,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = 0;i < dim;++i) {
       float value = sum * s_v[tx * dim + i];
       value = warp_reduce_sum<float>(value);
-      if(laneid == 0) s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre + value * expf_now) : 0.f;
-        //s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.f;
+      if(laneid == 0) 
+        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.f;
     }
     // e^(x-m) / l * v
     k += Bc * kv_stride;
@@ -182,9 +182,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     kv_acc_len += Bc;
     __syncthreads();
   }
-  for(size_t i = 0;i < dim;i++) {
-    if(laneid == 0) s_o[ty * dim + i] = s_o[ty * dim + i] / s_l[ty];
-  }
+  
   #pragma unroll
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
