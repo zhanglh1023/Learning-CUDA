@@ -134,7 +134,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
     int y = i / dim;
-    s_q[i] = ((q_acc_len + y) < q_len) ? q[y * q_stride + x] : T(0);
+    s_q[i] = ((q_acc_len + y) < q_len) ? static_cast<float>(q[y * q_stride + x]) : float(0);
   }
   #pragma unroll
   for(size_t c = 0;c < Tc;++c) {
@@ -142,15 +142,15 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = tid;i < Bc * dim;i += block_size) {
       int x = i % dim;
       int y = i / dim;
-      s_k[i] = ((kv_acc_len + y) < kv_len) ? k[y * kv_stride + x] : T(0);
-      s_v[i] = ((kv_acc_len + y) < kv_len) ? v[y * kv_stride + x] : T(0);
+      s_k[i] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
+      s_v[i] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + x]) : float(0);
     }
     __syncthreads();
 
     float sum = 0.f;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      sum += static_cast<float>(s_q[ty * dim + i]) * static_cast<float>(s_k[tx * dim + i]);
+      sum += s_q[ty * dim + i] * s_k[tx * dim + i];
     }
     sum *= scale;
     float m_now = ((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) ? sum : -__FLT_MAX__;
@@ -168,10 +168,10 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     s_l[ty] = l;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      float value = sum * static_cast<float>(s_v[tx * dim + i]);
+      float value = sum * s_v[tx * dim + i];
       value = warp_reduce_sum<float>(value);
       if(laneid == 0)
-        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (static_cast<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value * expf(m_now - m)) / l : 0.f;
+        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf(m_pre - m) * l_pre + value * expf(m_now - m)) / l : 0.f;
     }
     // e^(x-m) / l * v
     k += Bc * kv_stride;
@@ -189,7 +189,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     int y = i / dim;
     if(q_acc_len + y < q_len) {
         //printf("o[%d]: %.2f\n", q_acc_len + y, s_o[y * dim + x]);
-        o[y * q_stride + x] = s_o[y * dim + x];
+        o[y * q_stride + x] = static_cast<half>(s_o[y * dim + x];)
     }
   }
 }
