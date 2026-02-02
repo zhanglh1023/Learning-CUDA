@@ -7,10 +7,18 @@
 #define WARP_SZIE 32
 
 template<typename T>
-__device__ __forceinline__ T warp_reduce(T value) {
+__device__ __forceinline__ T warp_reduce_sum(T value) {
   #pragma unroll
   for(size_t i = WARP_SZIE >> 1;i > 0;i >>= 1) {
     value += __shfl_xor_sync(0xffffffff, value, i);
+  }
+  return value;
+}
+template<typename T>
+__device__ __forceinline__ T warp_reduce_max(T value) {
+  #pragma unroll
+  for(size_t i = WARP_SZIE >> 1;i > 0;i >>= 1) {
+    value = fmaxf(value, __shfl_xor_sync(0xffffffff, value, i));
   }
   return value;
 }
@@ -39,7 +47,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
     size_t x = idx + i * STRIDE;
     if(x < n) value += input[x * cols + x];
   }
-  value = warp_reduce<T>(value);
+  value = warp_reduce_sum<T>(value);
   const int warpid = tid / 32;
   const int laneid = tid % 32;
   __shared__ T smem[32];
@@ -49,7 +57,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   __syncthreads();
   if(warpid == 0) {
     value = smem[laneid];
-    value = warp_reduce<T>(value);
+    value = warp_reduce_sum<T>(value);
     if(laneid == 0) {atomicAdd(output, value);}
   }
 }
@@ -82,6 +90,98 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   return T((*output_h));
 }
 
+
+template<typename T, const int Br = 16, const int Bc = 32>
+__global__ void flash_attn_kernel(T *q, T *k, T *v, T *o, 
+                          const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal) {
+  const int bx = blockIdx.x;
+  const int block_size = blockDim.x;
+  const int head_id = blockIdx.y;
+  const int kv_head_id = head_id % kv_heads;
+  const int batch_id = blockIdx.z;
+  const int tid = threadIdx.x;
+  const int tx = tid % Bc;
+  const int ty = tid / Bc;
+  const int laneid = tid % WARP_SZIE;
+  const int q_stride = gridDim.y * dim;
+  const int kv_stride = kv_heads * dim;
+  q += batch_id * q_len * q_stride + head_id * dim + bx * Br * q_stride;
+  k += batch_id * kv_len * kv_stride + kv_head_id * dim;
+  v += batch_id * kv_len * kv_stride + kv_head_id * dim;
+  o += batch_id * q_len * q_stride + head_id * dim + bx * Br * q_stride;
+  
+  const int Tc = CEIL(kv_len, Bc);
+  
+  __shared__ T smem[];
+  T *s_q = smem;
+  T *s_k = s_q + Br * dim;
+  T *s_v = s_k + Bc * dim;
+  T *s_o = s_v + Bc * dim;
+  T *s_m = s_o + Br * dim;
+  T *s_l = s_m + Br;
+  
+  #pragma unroll
+  for(size_t i = tid;i < Br;i += block_size) {
+    s_m[i] = -__FLT_MAX__;
+    s_l[i] = 0.f;
+  }
+  int q_acc_len = bx * Br;
+  int kv_acc_len = 0;
+
+  #pragma unroll
+  for(size_t i = tid;i < Br * dim;i += block_size) {
+    int x = i % dim;
+    int y = i / dim;
+    s_q[i] = ((q_acc_len + y) < q_len) ? q[y * q_stride + x] : 0.f;
+  }
+  #pragma unroll
+  for(size_t c = 0;c < Tc;++c) {
+    #pragma unroll
+    for(size_t i = tid;i < Bc * dim;i += block_size) {
+      int x = i % dim;
+      int y = i / dim;
+      s_k[i] = ((kv_acc_len + y) < kv_len) ? k[y * kv_stride + x] : 0.f;
+      s_v[i] = ((kv_acc_len + y) < kv_len) ? v[y * kv_stride + x] : 0.f;
+    }
+    __syncthreads();
+
+    float sum = 0.f;
+    #pragma unroll
+    for(size_t i = 0;i < dim;++i) {
+      sum += s_q[ty * dim + i] * s_k[tx * dim + i];
+    }
+    float m_now = sum;
+    m_now = warp_reduce_max<float>(m_now);
+    sum = expf(sum - m_now);
+    float l_now = sum;
+    l_now = warp_reduce_sum<float>(l_now);
+
+    float m_pre = s_m[ty];
+    float l_pre = s_l[ty];
+    float m = fmaxf(m_pre, m_now);
+    float l = l_pre * expf(m_pre - m) + l_now * expf(m_now - m);
+    s_m[ty] = m;
+    s_l[ty] = l;
+    #pragma unroll
+    for(size_t i = 0;i < dim;++i) {
+      float value = sum * s_v[tx * dim + i];
+      value = warp_reduce_sum<float>(value);
+      if(laneid == 0)
+        s_o[ty * dim + i] = (s_o[ty * dim + i] * expf(m_pre - m) * l_pre + value) / l;
+    }
+    // e^(x-m) / l * v
+    k += Bc * kv_heads * dim;
+    v += Bc * kv_heads * dim;
+    kv_acc_len += Bc;
+  }
+  #pragma unroll
+  for(size_t i = tid;i < Br * dim;i += block_size) {
+    int x = i % dim;
+    int y = i / dim;
+    if(q_acc_len + y < q_len)
+      o[(q_acc_len + y) * q_stride + x] = s_o[y * dim + x];
+  }
+}
 /**
  * @brief Computes flash attention for given query, key, and value tensors.
  * 
@@ -102,7 +202,8 @@ template <typename T>
 void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
                     const std::vector<T>& h_v, std::vector<T>& h_o,
                     int batch_size, int target_seq_len, int src_seq_len, 
-                    int query_heads, int kv_heads, int head_dim, bool is_causal) {       
+                    int query_heads, int kv_heads, int head_dim, bool is_causal) {     
+  if(is_causal) return ;  
   // TODO: Implement the flash attention functio
   //printf("batch_size : %d\n", batch_size);
   //printf("target_seq_len : %d\n", target_seq_len);
@@ -122,24 +223,21 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   cudaMemcpy(d_q, h_q.data(), qo_bytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_k, h_k.data(), kv_bytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_v, h_v.data(), kv_bytes, cudaMemcpyHostToDevice);
-  for(int i = 0;i < qo_size;i++) h_o[i] = 0;
-  cudaMemcpy(d_o, h_o.data(), qo_bytes, cudaMemcpyHostToDevice);
-  T *d_l, *d_m, *h_m;
-  size_t flat_size = batch_size * target_seq_len * query_heads;
-  size_t flat_bytes = flat_size * sizeof(T);
-  cudaMalloc((void**)(&d_l), flat_bytes);
-  cudaMalloc((void**)(&d_m), flat_bytes);
-  h_m = (T*)malloc(flat_bytes);
-  for(int i = 0;i < flat_size;i++) {
-    h_m[i] = -__FLT_MAX__;
-  }
-  cudaMemcpy(d_l, h_o.data(), flat_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_m, h_m, flat_bytes, cudaMemcpyHostToDevice);
-
+  
   int max_sram_bytes;
-  cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
+  cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);//12288 floats 
   size_t max_sram_size = max_sram_bytes / sizeof(T);
-  printf("max_sram_size : %d\n", max_sram_size);
+  //printf("max_sram_size : %d\n", max_sram_size);
+  if(head_dim <= 128) {
+    constexpr int Br = 16;
+    constexpr int Bc = 32;
+    constexpr int Tc = CEIL(src_seq_len, Bc);
+    dim3 block(512);
+    dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+    size_t sram_size = (Br + Bc) * head_dim * 2 + Br * 2;
+    size_t sram_bytes = min(sram_size * sizeof(T), max_sram_bytes);
+    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal); 
+  }
 }
 
 // *********************************************************************
