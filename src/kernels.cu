@@ -196,7 +196,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double expf_pre = safe_exp(m_pre - m);
     double expf_now = safe_exp(m_now - m);
     double l = l_pre * expf_pre + l_now * expf_now;
-    double l_inv = 1.0 / l + 1e-12;
+    double l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
 
@@ -207,7 +207,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       value = warp_reduce_sum<double>(value);
       if(laneid == 0) {
         // 计算新值
-        double new_val = (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv;
+        double new_val = s_o[ty * dim + i] * expf_pre * l_pre * l_inv + value * expf_now * l_inv;
         
         // 使用Kahan更新
         double y = new_val - s_o[ty * dim + i] - carry_o;
