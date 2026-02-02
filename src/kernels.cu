@@ -189,7 +189,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     int y = i / dim;
     if(q_acc_len + y < q_len) {
         //printf("o[%d]: %.2f\n", q_acc_len + y, s_o[y * dim + x]);
-        o[y * q_stride + x] = static_cast<half>(s_o[y * dim + x]);
+        o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
     }
   }
 }
