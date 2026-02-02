@@ -165,7 +165,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = 0;i < dim;++i) {
       sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
     }
-    sum *= scale;
+    sum *= static_cast<double>(scale);
     double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__DBL_MAX__;
     m_now = warp_reduce_max<double>(m_now);
     sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? safe_exp(sum - m_now) : 0.0;
