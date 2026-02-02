@@ -112,7 +112,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   
   const int Tc = CEIL(kv_len, Bc);
   
-  __shared__ T smem[];
+  extern __shared__ T smem[];
   T *s_q = smem;
   T *s_k = s_q + Br * dim;
   T *s_v = s_k + Bc * dim;
@@ -231,10 +231,9 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   if(head_dim <= 128) {
     constexpr int Br = 16;
     constexpr int Bc = 32;
-    constexpr int Tc = CEIL(src_seq_len, Bc);
     dim3 block(512);
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
-    size_t sram_size = (Br + Bc) * head_dim * 2 + Br * 2;
+    int sram_size = (Br + Bc) * head_dim * 2 + Br * 2;
     size_t sram_bytes = min(sram_size * sizeof(T), max_sram_bytes);
     flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal); 
   }
