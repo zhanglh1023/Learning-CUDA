@@ -118,8 +118,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   float *s_q = (float*)smem;
   float *s_k = s_q + Br * dim;
   float *s_v = s_k + Bc * dim;
-  float *s_o = s_v + Bc * dim;
-  double *s_m = (double*)(s_o + Br * dim);
+  double *s_o = (double*)(s_v + Bc * dim);
+  double *s_m = s_o + Br * dim;
   double *s_l = s_m + Br;
   
   #pragma unroll
@@ -244,8 +244,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     constexpr int Bc = 32;
     dim3 block(512);
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
-    size_t sram_size = (Br + Bc) * head_dim * 2;
-    int sram_bytes = sram_size * sizeof(float) + Br * 2 * sizeof(double);
+    size_t sram_size = (Br + 2 * Bc) * head_dim;
+    int sram_bytes = sram_size * sizeof(float) + (Br * 2 + Br * head_dim) * sizeof(double);
     sram_bytes = min(sram_bytes, max_sram_bytes);
     flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
