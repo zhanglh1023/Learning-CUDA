@@ -93,7 +93,7 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
 
 template<typename T, const int Br = 16, const int Bc = 32>
 __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o, 
-                          const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal) {
+                          const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal, const float scale) {
   const int bx = blockIdx.x;
   const int block_size = blockDim.x;
   const int head_id = blockIdx.y;
@@ -152,6 +152,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = 0;i < dim;++i) {
       sum += static_cast<float>(s_q[ty * dim + i] * s_k[tx * dim + i]);
     }
+    sum *= scale;
     float m_now = sum;
     m_now = warp_reduce_max<float>(m_now);
     sum = expf(sum - m_now);
@@ -244,7 +245,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
     size_t sram_size = (Br + Bc) * head_dim * 2 + Br * 2;
     size_t sram_bytes = min(sram_size, max_sram_size) * sizeof(T);
-    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal);
+    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, 1.0 / sqrt(head_dim));
     cudaMemcpy(d_o, h_o.data(), qo_bytes, cudaMemcpyDeviceToHost);
   }
 }
