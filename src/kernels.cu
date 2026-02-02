@@ -115,10 +115,10 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   
   extern __shared__ char smem[];
   
-  float *s_q = (float*)smem;
-  float *s_k = s_q + Br * dim;
-  float *s_v = s_k + Bc * dim;
-  double *s_o = (double*)(s_v + Bc * dim);
+  double *s_q = (double*)smem;
+  double *s_k = s_q + Br * dim;
+  double *s_v = s_k + Bc * dim;
+  double *s_o = s_v + Bc * dim;
   double *s_m = s_o + Br * dim;
   double *s_l = s_m + Br;
   
@@ -134,8 +134,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
     int y = i / dim;
-    s_q[i] = ((q_acc_len + y) < q_len) ? static_cast<float>(q[y * q_stride + x]) : float(0);
-    s_o[i] = 0.f;
+    s_q[i] = ((q_acc_len + y) < q_len) ? static_cast<double>(q[y * q_stride + x]) : 0.0;
+    s_o[i] = 0.0;
   }
   #pragma unroll
   for(size_t c = 0;c < Tc;++c) {
@@ -143,12 +143,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = tid;i < Bc * dim;i += block_size) {
       int x = i % dim;
       int y = i / dim;
-      s_k[i] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
-      s_v[i] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + x]) : float(0);
+      s_k[i] = ((kv_acc_len + y) < kv_len) ? static_cast<double>(k[y * kv_stride + x]) : 0.0;
+      s_v[i] = ((kv_acc_len + y) < kv_len) ? static_cast<double>(v[y * kv_stride + x]) : 0.0;
     }
     __syncthreads();
 
-    double sum = 0;
+    double sum = 0.0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
       sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
@@ -245,7 +245,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     dim3 block(512);
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
     size_t sram_size = (Br + 2 * Bc) * head_dim;
-    int sram_bytes = sram_size * sizeof(float) + (Br * 2 + Br * head_dim) * sizeof(double);
+    int sram_bytes = sram_size * sizeof(double) + (Br * 2 + Br * head_dim) * sizeof(double);
     sram_bytes = min(sram_bytes, max_sram_bytes);
     flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
