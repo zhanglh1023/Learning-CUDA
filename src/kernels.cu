@@ -174,7 +174,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double sum = 0.0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
+      sum = __fma(s_q[ty * dim + i], s_k[tx * dim + i], sum);
+      //sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
     }
     sum *= static_cast<double>(scale);
     double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__DBL_MAX__;
