@@ -134,7 +134,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
     int y = i / dim;
-    s_q[i] = ((q_acc_len + y) < q_len) ? q[y * q_stride + x] : 0;
+    s_q[i] = ((q_acc_len + y) < q_len) ? q[y * q_stride + x] : T(0);
   }
   #pragma unroll
   for(size_t c = 0;c < Tc;++c) {
@@ -142,8 +142,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = tid;i < Bc * dim;i += block_size) {
       int x = i % dim;
       int y = i / dim;
-      s_k[i] = ((kv_acc_len + y) < kv_len) ? k[y * kv_stride + x] : 0;
-      s_v[i] = ((kv_acc_len + y) < kv_len) ? v[y * kv_stride + x] : 0;
+      s_k[i] = ((kv_acc_len + y) < kv_len) ? k[y * kv_stride + x] : T(0);
+      s_v[i] = ((kv_acc_len + y) < kv_len) ? v[y * kv_stride + x] : T(0);
     }
     __syncthreads();
 
