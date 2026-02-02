@@ -97,7 +97,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   const int bx = blockIdx.x;
   const int block_size = blockDim.x;
   const int head_id = blockIdx.y;
-  const int kv_head_id = head_id / (gridDim.y / kv_heads);
+  const int kv_head_id = head_id % (gridDim.y / kv_heads);
   const int batch_id = blockIdx.z;
   const int tid = threadIdx.x;
   const int tx = tid % Bc;
@@ -155,7 +155,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     sum *= scale;
     float m_now = sum;
     m_now = warp_reduce_max<float>(m_now);
-    sum = expf(sum - m_now);
+    sum = ((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) ? expf(sum - m_now) : 0.f;
     float l_now = sum;
     l_now = warp_reduce_sum<float>(l_now);
     
@@ -171,11 +171,11 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       float value = sum * static_cast<float>(s_v[tx * dim + i]);
       value = warp_reduce_sum<float>(value);
       if(laneid == 0)
-        s_o[ty * dim + i] = (static_cast<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value) / l;
+        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (static_cast<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value) / l : 0.f;
     }
     // e^(x-m) / l * v
-    k += Bc * kv_heads * dim;
-    v += Bc * kv_heads * dim;
+    k += Bc * kv_stride;
+    v += Bc * kv_stride;
     kv_acc_len += Bc;
     __syncthreads();
   }
@@ -188,6 +188,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     int x = i % dim;
     int y = i / dim;
     if(q_acc_len + y < q_len) {
+        //printf("o[%d]: %.2f\n", q_acc_len + y, s_o[y * dim + x]);
         o[y * q_stride + x] = s_o[y * dim + x];
     }
   }
