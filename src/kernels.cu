@@ -30,6 +30,10 @@ __device__ __forceinline__ double warp_reduce_max(double value) {
   }
   return value;
 }
+__device__ __forceinline__ double safe_exp(double x) {
+    if (x < -80.0) return 0.0;
+    return exp(x);
+}
 /**
  * @brief Computes the trace of a matrix.
  *
@@ -164,7 +168,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     sum *= scale;
     double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__DBL_MAX__;
     m_now = warp_reduce_max<double>(m_now);
-    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? exp(sum - m_now) : 0.0;
+    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? safe_exp(sum - m_now) : 0.0;
     double l_now = sum;
     l_now = warp_reduce_sum<double>(l_now);
     
@@ -172,8 +176,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double l_pre = s_l[ty];
 
     double m = fmax(m_pre, m_now);
-    double expf_pre = exp(m_pre - m);
-    double expf_now = exp(m_now - m);
+    double expf_pre = safe_exp(m_pre - m);
+    double expf_now = safe_exp(m_now - m);
     double l = l_pre * expf_pre + l_now * expf_now;
     double l_inv = 1.0 / l;
     s_m[ty] = m;
