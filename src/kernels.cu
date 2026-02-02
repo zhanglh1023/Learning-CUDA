@@ -190,7 +190,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double m = fmax(m_pre, m_now);
     double expf_pre = safe_exp(m_pre - m);
     double expf_now = safe_exp(m_now - m);
-    double l = l_pre * expf_pre + l_now * expf_now + 1e-15;
+    double l = l_pre * expf_pre + l_now * expf_now + 1e-12;
     double l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
@@ -213,7 +213,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     int x = i % dim;
     int y = i / dim;
     if(q_acc_len + y < q_len) {
-        o[y * q_stride + x] = static_cast<T>(round(s_o[y * dim + x] * 1e10) / 1e10);
+        o[y * q_stride + x] = static_cast<T>(round(s_o[y * dim + x] * 1e12) / 1e12);
         //o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
     }
   }
