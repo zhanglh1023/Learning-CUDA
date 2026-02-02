@@ -150,7 +150,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     float sum = 0.f;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      sum += static_cast<float>(s_q[ty * dim + i] * s_k[tx * dim + i]);
+      sum += static_cast<float>(s_q[ty * dim + i]) * static_cast<float>(s_k[tx * dim + i]);
     }
     sum *= scale;
     float m_now = ((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) ? sum : -__FLT_MAX__;
