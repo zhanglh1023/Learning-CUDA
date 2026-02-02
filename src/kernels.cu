@@ -31,19 +31,24 @@ __device__ __forceinline__ double warp_reduce_max(double value) {
   return value;
 }
 __device__ __forceinline__ double safe_exp(double x) {
-    if (x < -80.0) return 0.0;
-    if (x > 80.0) return exp(80.0);
+    double diff = x;
     
-    // 对于接近0的值，使用更高精度计算
-    if (fabs(x) < 1e-8) {
-        // exp(x) ≈ 1 + x + x²/2 + x³/6 (更高精度)
-        double x2 = x * x;
-        double x3 = x2 * x;
-        double x4 = x3 * x;
-        return 1.0 + x + x2 * 0.5 + x3 * (1.0/6.0) + x4 * (1.0/24.0);
+    // 当差异很小时，使用更高精度计算
+    if (fabs(diff) < 1e-4) {
+        // 使用 exp(x) = 1 + x + x²/2 + x³/6 + ... 更高阶
+        double result = 1.0;
+        double term = 1.0;
+        for (int i = 1; i <= 8; i++) {
+            term *= diff / i;
+            result += term;
+        }
+        return result;
     }
     
-    return exp(x);
+    // 正常情况
+    if (diff < -80.0) return 0.0;
+    if (diff > 80.0) return exp(80.0);
+    return exp(diff);
 }
 /**
  * @brief Computes the trace of a matrix.
@@ -194,12 +199,23 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
+
+    double carry_o = 0.0; 
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
       double value = sum_now * s_v[tx * dim + i];
       value = warp_reduce_sum<double>(value);
-      if(laneid == 0) 
-        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.0;
+      if(laneid == 0) {
+        // 计算新值
+        double new_val = (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv;
+        
+        // 使用Kahan更新
+        double y = new_val - s_o[ty * dim + i] - carry_o;
+        double t = s_o[ty * dim + i] + y;
+        carry_o = (t - s_o[ty * dim + i]) - y;
+        s_o[ty * dim + i] = t;
+        //s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.0;
+      }
     }
     // e^(x-m) / l * v
     k += Bc * kv_stride;
