@@ -119,8 +119,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   float *s_k = s_q + Br * dim;
   float *s_v = s_k + Bc * dim;
   float *s_o = s_v + Bc * dim;
-  float *s_m = s_o + Br * dim;
-  float *s_l = s_m + Br;
+  double *s_m = (double*)s_o + Br * dim;
+  double *s_l = s_m + Br;
   
   #pragma unroll
   for(size_t i = tid;i < Br;i += block_size) {
@@ -148,32 +148,32 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     }
     __syncthreads();
 
-    float sum = 0;
+    double sum = 0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
       sum += s_q[ty * dim + i] * s_k[tx * dim + i];
     }
     sum *= scale;
-    float m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
-    m_now = warp_reduce_max<float>(m_now);
-    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? expf(sum - m_now) : 0.f;
-    float l_now = sum;
-    l_now = warp_reduce_sum<float>(l_now);
+    double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
+    m_now = warp_reduce_max<double>(m_now);
+    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? exp(sum - m_now) : 0.f;
+    double l_now = sum;
+    l_now = warp_reduce_sum<double>(l_now);
     
-    float m_pre = s_m[ty];
-    float l_pre = s_l[ty];
+    double m_pre = s_m[ty];
+    double l_pre = s_l[ty];
 
-    float m = fmaxf(m_pre, m_now);
-    float expf_pre = expf(m_pre - m);
-    float expf_now = expf(m_now - m);
-    float l = l_pre * expf_pre + l_now * expf_now;
-    float l_inv = 1.0 / l;
+    double m = fmax(m_pre, m_now);
+    double expf_pre = exp(m_pre - m);
+    double expf_now = exp(m_now - m);
+    double l = l_pre * expf_pre + l_now * expf_now;
+    double l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      float value = sum * s_v[tx * dim + i];
-      value = warp_reduce_sum<float>(value);
+      double value = sum * s_v[tx * dim + i];
+      value = warp_reduce_sum<double>(value);
       if(laneid == 0) 
         s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.f;
     }
@@ -244,10 +244,10 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     constexpr int Bc = 32;
     dim3 block(512);
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
-    size_t sram_size = (Br + Bc) * head_dim * 2 + Br;
-    int sram_bytes = sram_size * sizeof(float) + Br * sizeof(float);
+    size_t sram_size = (Br + Bc) * head_dim * 2;
+    int sram_bytes = sram_size * sizeof(float) + Br * 2 * sizeof(double);
     sram_bytes = min(sram_bytes, max_sram_bytes);
-    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, 1.0 / sqrt(head_dim));
+    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
   }
 }
