@@ -237,7 +237,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
     size_t sram_size = (Br + Bc) * head_dim * 2 + Br * 2;
     size_t sram_bytes = min(sram_size, max_sram_size) * sizeof(T);
-    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal); 
+    flash_attn_kernel<T, Br, Bc><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal);
+    cudaMemcpy(d_o, h_o.data(), qo_bytes, cudaMemcpyDeviceToHost);
   }
 }
 
