@@ -112,8 +112,10 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   
   const int Tc = CEIL(kv_len, Bc);
   
-  extern __shared__ T smem[];
-  T *s_q = smem;
+  
+  extern __shared__ char smem[];
+  
+  T *s_q = (T*)smem;
   T *s_k = s_q + Br * dim;
   T *s_v = s_k + Bc * dim;
   T *s_o = s_v + Bc * dim;
