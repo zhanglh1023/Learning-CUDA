@@ -166,7 +166,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     s_l[ty] = l;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      float value = sum * s_v[tx * dim + i];
+      float value = sum * static_cast<float>(s_v[tx * dim + i]);
       value = warp_reduce_sum<float>(value);
       if(laneid == 0)
         s_o[ty * dim + i] = (static_cast<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value) / l;
