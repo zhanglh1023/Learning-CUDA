@@ -147,12 +147,13 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     }
     __syncthreads();
 
-    float sum = 0.f;
+    double tmp_sum = 0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      sum += s_q[ty * dim + i] * s_k[tx * dim + i];
+      tmp_sum += s_q[ty * dim + i] * s_k[tx * dim + i];
     }
-    sum *= scale;
+    tmp_sum *= scale;
+    float sum = tmp_sum;
     float m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
     m_now = warp_reduce_max<float>(m_now);
     sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? __expf(sum - m_now) : 0.f;
@@ -179,16 +180,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     kv_acc_len += Bc;
     __syncthreads();
   }
-  //if(laneid == 0) {
-    //printf("m[%d]: %.2f\n", q_acc_len + ty, s_m[ty]);
-    //printf("l[%d]: %.2f\n", q_acc_len + ty, s_l[ty]);
-  //}
+  
   #pragma unroll
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
     int y = i / dim;
     if(q_acc_len + y < q_len) {
-        //printf("o[%d]: %.2f\n", q_acc_len + y, s_o[y * dim + x]);
         o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
     }
   }
