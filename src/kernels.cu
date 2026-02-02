@@ -165,7 +165,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     float m = fmaxf(m_pre, m_now);
     float expf_pre = expf(m_pre - m);
     float expf_now = expf(m_now - m);
-    float l = l_pre * expf_pre + l_now * expf_now;
+    float l = l_pre * expf_pre + l_now * expf_now + 1e-9;
     float l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
