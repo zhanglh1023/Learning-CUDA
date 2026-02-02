@@ -103,7 +103,14 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
                     const std::vector<T>& h_v, std::vector<T>& h_o,
                     int batch_size, int target_seq_len, int src_seq_len, 
                     int query_heads, int kv_heads, int head_dim, bool is_causal) {       
-  // TODO: Implement the flash attention function
+  // TODO: Implement the flash attention functio
+  printf("batch_size : %d\n", batch_size);
+  printf("target_seq_len : %d\n", target_seq_len);
+  printf("src_seq_len : %d\n", src_seq_len);
+  printf("query_heads : %d\n", query_heads);
+  printf("kv_heads : %d\n", kv_heads);
+  printf("head_dim : %d\n", head_dim);
+
 }
 
 // *********************************************************************
