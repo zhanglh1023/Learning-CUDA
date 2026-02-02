@@ -133,7 +133,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   #pragma unroll
   for(size_t i = tid;i < Br;i += block_size) {
     s_m[i] = -__DBL_MAX__;
-    s_l[i] = 0;
+    s_l[i] = 0.0;
   }
   int q_acc_len = bx * Br;
   int kv_acc_len = 0;
