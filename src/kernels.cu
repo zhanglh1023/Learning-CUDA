@@ -124,7 +124,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   
   #pragma unroll
   for(size_t i = tid;i < Br;i += block_size) {
-    s_m[i] = -__FLT_MAX__;
+    s_m[i] = -__DBL_MAX__;
     s_l[i] = 0;
   }
   int q_acc_len = bx * Br;
@@ -151,12 +151,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double sum = 0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      sum += s_q[ty * dim + i] * s_k[tx * dim + i];
+      sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
     }
     sum *= scale;
-    double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
+    double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__DBL_MAX__;
     m_now = warp_reduce_max<double>(m_now);
-    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? exp(sum - m_now) : 0.f;
+    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? exp(sum - m_now) : 0.0;
     double l_now = sum;
     l_now = warp_reduce_sum<double>(l_now);
     
@@ -175,7 +175,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       double value = sum * s_v[tx * dim + i];
       value = warp_reduce_sum<double>(value);
       if(laneid == 0) 
-        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.f;
+        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.0;
     }
     // e^(x-m) / l * v
     k += Bc * kv_stride;
