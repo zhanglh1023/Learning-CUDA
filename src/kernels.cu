@@ -153,9 +153,9 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       sum += s_q[ty * dim + i] * s_k[tx * dim + i];
     }
     sum *= scale;
-    float m_now = ((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) ? sum : -__FLT_MAX__;
+    float m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty > kv_acc_len + tx)) ? sum : -__FLT_MAX__;
     m_now = warp_reduce_max<float>(m_now);
-    sum = ((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) ? expf(sum - m_now) : 0.f;
+    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty > kv_acc_len + tx)) ? expf(sum - m_now) : 0.f;
     float l_now = sum;
     l_now = warp_reduce_sum<float>(l_now);
     
