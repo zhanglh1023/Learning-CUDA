@@ -119,7 +119,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   float *s_k = s_q + Br * dim;
   float *s_v = s_k + Bc * dim;
   float *s_o = s_v + Bc * dim;
-  double *s_m = (double*)s_o + Br * dim;
+  double *s_m = (double*)(s_o + Br * dim);
   double *s_l = s_m + Br;
   
   #pragma unroll
