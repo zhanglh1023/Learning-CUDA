@@ -169,7 +169,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       float value = sum * s_v[tx * dim + i];
       value = warp_reduce_sum<float>(value);
       if(laneid == 0)
-        s_o[ty * dim + i] = (static<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value) / l;
+        s_o[ty * dim + i] = (static_cast<float>(s_o[ty * dim + i]) * expf(m_pre - m) * l_pre + value) / l;
     }
     // e^(x-m) / l * v
     k += Bc * kv_heads * dim;
