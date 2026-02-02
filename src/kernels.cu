@@ -32,6 +32,17 @@ __device__ __forceinline__ double warp_reduce_max(double value) {
 }
 __device__ __forceinline__ double safe_exp(double x) {
     if (x < -80.0) return 0.0;
+    if (x > 80.0) return exp(80.0);
+    
+    // 对于接近0的值，使用更高精度计算
+    if (fabs(x) < 1e-8) {
+        // exp(x) ≈ 1 + x + x²/2 + x³/6 (更高精度)
+        double x2 = x * x;
+        double x3 = x2 * x;
+        double x4 = x3 * x;
+        return 1.0 + x + x2 * 0.5 + x3 * (1.0/6.0) + x4 * (1.0/24.0);
+    }
+    
     return exp(x);
 }
 /**
