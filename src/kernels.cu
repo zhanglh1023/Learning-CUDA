@@ -104,13 +104,42 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
                     int batch_size, int target_seq_len, int src_seq_len, 
                     int query_heads, int kv_heads, int head_dim, bool is_causal) {       
   // TODO: Implement the flash attention functio
-  printf("batch_size : %d\n", batch_size);
-  printf("target_seq_len : %d\n", target_seq_len);
-  printf("src_seq_len : %d\n", src_seq_len);
-  printf("query_heads : %d\n", query_heads);
-  printf("kv_heads : %d\n", kv_heads);
-  printf("head_dim : %d\n", head_dim);
+  //printf("batch_size : %d\n", batch_size);
+  //printf("target_seq_len : %d\n", target_seq_len);
+  //printf("src_seq_len : %d\n", src_seq_len);
+  //printf("query_heads : %d\n", query_heads);
+  //printf("kv_heads : %d\n", kv_heads);
+  //printf("head_dim : %d\n", head_dim);
+  size_t qo_size = batch_size * target_seq_len * query_heads * head_dim;
+  size_t qo_bytes = qo_size * sizeof(T);
+  size_t kv_size = batch_size * src_seq_len * kv_heads * head_dim;
+  size_t kv_bytes = kv_size * sizeof(T);
+  T *d_q, *d_k, *d_v, *d_o;
+  cudaMalloc((void**)(&d_q), qo_bytes);
+  cudaMalloc((void**)(&d_k), kv_bytes);
+  cudaMalloc((void**)(&d_v), kv_bytes);
+  cudaMalloc((void**)(&d_o), qo_bytes);
+  cudaMemcpy(d_q, h_q.data(), qo_bytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_k, h_k.data(), kv_bytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_v, h_v.data(), kv_bytes, cudaMemcpyHostToDevice);
+  for(int i = 0;i < qo_size;i++) h_o[i] = 0;
+  cudaMemcpy(d_o, h_o.data(), qo_bytes, cudaMemcpyHostToDevice);
+  T *d_l, *d_m, *h_m;
+  size_t flat_size = batch_size * target_seq_len * query_heads;
+  size_t flat_bytes = flat_size * sizeof(T);
+  cudaMalloc((void**)(&d_l), flat_bytes);
+  cudaMalloc((void**)(&d_m), flat_bytes);
+  h_m = (T*)malloc(flat_bytes);
+  for(int i = 0;i < flat_size;i++) {
+    h_m = -__FLT_MAX__;
+  }
+  cudaMemcpy(d_l, h_o.data(), flat_bytes, cudaMemcpyHostToDevice);
+  cudaMemset(d_m, h_m, flat_bytes, cudaMemcpyHostToDevice);
 
+  size_t max_sram_bytes;
+  cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
+  size_t max_sram_size = max_sram_bytes / sizeof(T);
+  printf("max_sram_size : %d\n", max_sram_size);
 }
 
 // *********************************************************************
