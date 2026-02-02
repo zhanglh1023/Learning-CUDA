@@ -196,7 +196,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     double expf_pre = safe_exp(m_pre - m);
     double expf_now = safe_exp(m_now - m);
     double l = l_pre * expf_pre + l_now * expf_now;
-    double l_inv = 1.0 / l;
+    double l_inv = 1.0 / l + 1e-12;
     s_m[ty] = m;
     s_l[ty] = l;
 
