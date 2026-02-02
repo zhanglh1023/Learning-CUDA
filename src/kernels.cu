@@ -147,33 +147,32 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     }
     __syncthreads();
 
-    double tmp_sum = 0;
+    double sum = 0;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      tmp_sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
+      sum += static_cast<double>(s_q[ty * dim + i]) * static_cast<double>(s_k[tx * dim + i]);
     }
-    tmp_sum *= scale;
-    float sum = static_cast<float>(tmp_sum);
-    float m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
-    m_now = warp_reduce_max<float>(m_now);
-    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? __expf(sum - m_now) : 0.f;
-    float l_now = sum;
-    l_now = warp_reduce_sum<float>(l_now);
+    sum *= scale;
+    double m_now = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? sum : -__FLT_MAX__;
+    m_now = warp_reduce_max<double>(m_now);
+    sum = (((q_acc_len + ty < q_len) && (kv_acc_len + tx < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx)) ? exp(sum - m_now) : 0.f;
+    double l_now = sum;
+    l_now = warp_reduce_sum<double>(l_now);
     
-    float m_pre = s_m[ty];
-    float l_pre = s_l[ty];
+    double m_pre = s_m[ty];
+    double l_pre = s_l[ty];
 
-    float m = fmaxf(m_pre, m_now);
-    float expf_pre = __expf(m_pre - m);
-    float expf_now = __expf(m_now - m);
-    float l = l_pre * expf_pre + l_now * expf_now;
-    float l_inv = 1.0 / l;
+    double m = max(m_pre, m_now);
+    double expf_pre = exp(m_pre - m);
+    double expf_now = exp(m_now - m);
+    double l = l_pre * expf_pre + l_now * expf_now;
+    double l_inv = 1.0 / l;
     s_m[ty] = m;
     s_l[ty] = l;
     #pragma unroll
     for(size_t i = 0;i < dim;++i) {
-      float value = sum * s_v[tx * dim + i];
-      value = warp_reduce_sum<float>(value);
+      double value = sum * s_v[tx * dim + i];
+      value = warp_reduce_sum<double>(value);
       if(laneid == 0)
         s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf_pre * l_pre + value * expf_now) * l_inv : 0.f;
     }
