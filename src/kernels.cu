@@ -171,7 +171,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       float value = sum * s_v[tx * dim + i];
       value = warp_reduce_sum<float>(value);
       if(laneid == 0)
-        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf(m_pre - m) * l_pre + value * expf(m_now - m)) / l : 0.f;
+        s_o[ty * dim + i] = (q_acc_len + ty < q_len) ? (s_o[ty * dim + i] * expf(m_pre - m) * l_pre / l) + value * expf(m_now - m) / l : 0.f;
     }
     // e^(x-m) / l * v
     k += Bc * kv_stride;
