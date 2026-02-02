@@ -120,7 +120,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   T *s_v = s_k + Bc * dim;
   T *s_o = s_v + Bc * dim;
   T *s_m = s_o + Br * dim;
-  float *s_l = s_m + Br;
+  float *s_l = (float*)(s_m + Br);
   
   #pragma unroll
   for(size_t i = tid;i < Br;i += block_size) {
