@@ -296,7 +296,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   int max_sram_bytes;
   cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);//12288 floats 
   size_t max_sram_size = max_sram_bytes / sizeof(T);
-  //printf("max_sram_size : %d\n", max_sram_size);
+  printf("max_sram_size : %d\n", max_sram_size);
   // (max_sram-16*2) / 2 : 6128
   // (max_sram-32*2) / 2 : 6112
   // TM = (6128 / head_dim - 16) / 32
@@ -312,6 +312,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -326,6 +327,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -339,6 +341,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -352,6 +355,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -365,6 +369,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -378,6 +383,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
@@ -391,6 +397,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
       int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
