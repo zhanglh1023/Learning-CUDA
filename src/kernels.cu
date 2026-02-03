@@ -30,26 +30,7 @@ __device__ __forceinline__ double warp_reduce_max(double value) {
   }
   return value;
 }
-__device__ __forceinline__ double safe_exp(double x) {
-    double diff = x;
-    
-    // 当差异很小时，使用更高精度计算
-    if (fabs(diff) < 1e-4) {
-        // 使用 exp(x) = 1 + x + x²/2 + x³/6 + ... 更高阶
-        double result = 1.0;
-        double term = 1.0;
-        for (int i = 1; i <= 8; i++) {
-            term *= diff / i;
-            result += term;
-        }
-        return result;
-    }
-    
-    // 正常情况
-    if (diff < -80.0) return 0.0;
-    if (diff > 80.0) return exp(80.0);
-    return exp(diff);
-}
+
 /**
  * @brief Computes the trace of a matrix.
  *
@@ -158,7 +139,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   #pragma unroll
   for(size_t i = tid;i < BM;i += block_size) {
     s_m[i] = -__FLT_MAX__;
-    s_l[i] = 0;
+    s_l[i] = 0.f;
   }
   int q_acc_len = bx * BM;
   int kv_acc_len = 0;
@@ -202,11 +183,11 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         sum[i] *= scale;
         m_sum[i] = (((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx + i * Bc)) ? sum[i] : -__FLT_MAX__;
         m_now = fmaxf(m_now, m_sum[i]);
-        sum[i] = (((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx + i * Bc)) ? __expf(sum[i]) : 0.f;
+        sum[i] = (((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx + i * Bc)) ? expf(sum[i]) : 0.f;
         l_now += sum[i];
     }
     m_now = warp_reduce_max<float>(m_now);
-    float expf_m_now = __expf(-m_now);
+    float expf_m_now = expf(-m_now);
     l_now *= expf_m_now;
     l_now = warp_reduce_sum<float>(l_now);
     float p_now[TN];
@@ -215,12 +196,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         p_now[i] = sum[i] * expf_m_now;
     }
     m = fmaxf(m, m_now);
-    l = l_pre * __expf(m_pre - m) + l_now * __expf(m_now - m);
+    l = l_pre * expf(m_pre - m) + l_now * expf(m_now - m);
     s_m[ty] = m;
     s_l[ty] = l;
 
-    float exp_mprem = __expf(m_pre - m);
-    float exp_mnowm = __expf(m_now - m);
+    float exp_mprem = expf(m_pre - m);
+    float exp_mnowm = expf(m_now - m);
     #pragma unroll
     for(size_t j = 0;j < dim;++j) {
         float value = 0.f;
@@ -300,6 +281,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);//12288 floats 
   size_t max_sram_size = max_sram_bytes / sizeof(T);
   //printf("max_sram_size : %d\n", max_sram_size);
+  // (max_sram-8*2) / 2 : 6136
   // (max_sram-16*2) / 2 : 6128
   // (max_sram-32*2) / 2 : 6112
   // TM = (6128 / head_dim - 16) / 32
