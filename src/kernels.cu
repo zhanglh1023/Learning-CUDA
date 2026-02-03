@@ -99,7 +99,8 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   return T((*output_h));
 }
 
-
+// flash_attn_v2:
+// feature ：增加thread在Br方向的tile, 减少online_softmax迭代次数，解决多次乘加带来的精度损失。同时减少对shared_memory的访问，性能提升150ms->38ms
 template<typename T, const int Br = 16, const int Bc = 32, const int TM = 1, const int TN = 2>
 __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o, 
                           const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal, const float scale) {
@@ -218,16 +219,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     kv_acc_len += BN;
     __syncthreads();
   }
-  //if(laneid == 0) {
-    //printf("m[%d]: %.2f\n", q_acc_len + ty, s_m[ty]);
-    //printf("l[%d]: %.2f\n", q_acc_len + ty, s_l[ty]);
-  //}
+  
   #pragma unroll
   for(size_t i = tid;i < Br * dim;i += block_size) {
     int x = i % dim;
     int y = i / dim;
     if(q_acc_len + y < q_len) {
-        //printf("o[%d]: %.2f\n", q_acc_len + y, s_o[y * dim + x]);
         o[y * q_stride + x] = static_cast<T>(s_o[y * dim + x]);
     }
   }
