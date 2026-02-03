@@ -200,9 +200,9 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     #pragma unroll
     for(size_t i = 0;i < TN;i++) {
         sum[i] *= scale;
-        m_sum[i] = ((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) ? sum[i] : -__FLT_MAX__;
+        m_sum[i] = (((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx + i * Bc)) ? sum[i] : -__FLT_MAX__;
         m_now = fmaxf(m_now, m_sum[i]);
-        sum[i] = ((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) ? __expf(sum[i]) : 0.f;
+        sum[i] = (((q_acc_len + ty < q_len) && (kv_acc_len + tx + i * Bc < kv_len)) && (!is_causal || q_acc_len + ty >= kv_acc_len + tx + i * Bc)) ? __expf(sum[i]) : 0.f;
         l_now += sum[i];
     }
     m_now = warp_reduce_max<float>(m_now);
@@ -274,7 +274,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
                     int query_heads, int kv_heads, int head_dim, bool is_causal) {     
   if(is_causal) {
     printf("is_causal\n");
-    return ;
+    //return ;
   }
   // TODO: Implement the flash attention functio
   //printf("batch_size : %d\n", batch_size);
