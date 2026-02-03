@@ -303,6 +303,19 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   // TM = (6112 / head_dim - 32) / 32
   switch (head_dim)
   {
+  case 1:
+    {
+      constexpr int Br = 32;
+      constexpr int Bc = 32;
+      constexpr int TM = 1;
+      constexpr int TN = 8;
+      dim3 block(Br * Bc);
+      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      int sram_bytes = ((Br * TM + Bc * TN) * head_dim * 2 + Br * TM * 2) * sizeof(float);
+      sram_bytes = min(sram_bytes, max_sram_bytes);
+      flash_attn_kernel<T, Br, Bc, TM, TN><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
+    }
+    break;
   case 2:
     // TM = (6128 / 2 - 16) / 32 = 95
     {
