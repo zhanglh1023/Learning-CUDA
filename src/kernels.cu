@@ -296,7 +296,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   int max_sram_bytes;
   cudaDeviceGetAttribute(&max_sram_bytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);//12288 floats 
   size_t max_sram_size = max_sram_bytes / sizeof(T);
-  printf("max_sram_size : %d\n", max_sram_size);
+  //printf("max_sram_size : %d\n", max_sram_size);
   // (max_sram-16*2) / 2 : 6128
   // (max_sram-32*2) / 2 : 6112
   // TM = (6128 / head_dim - 16) / 32
