@@ -383,6 +383,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     }
     break;
   default:
+    printf("head_dim : %d\n", head_dim);
     break;
   }
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
