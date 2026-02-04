@@ -218,19 +218,19 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             sum[i][j] *= scale;
             m_sum[j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * TN + j < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * TN + j)) ? sum[i][j] : -__FLT_MAX__;
             m_now = fmaxf(m_now, m_sum[j]);
-            sum[i][j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * TN + j < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * TN + j)) ? __expf(sum[i][j]) : 0.f;
+            sum[i][j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * TN + j < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * TN + j)) ? expf(sum[i][j]) : 0.f;
             l_now += sum[i][j];
         }
         m_now = warp_reduce_max<float>(m_now);
-        float expf_m_now = __expf(-m_now);
+        float expf_m_now = expf(-m_now);
         l_now *= expf_m_now;
         l_now = warp_reduce_sum<float>(l_now);
         #pragma unroll
         for(size_t j = 0;j < TN;j++)
             p_now[i][j] = sum[i][j] * expf_m_now;
         m = fmaxf(m, m_now);
-        exp_mprem[i] = __expf(m_pre - m);
-        exp_mnowm[i] = __expf(m_now - m);
+        exp_mprem[i] = expf(m_pre - m);
+        exp_mnowm[i] = expf(m_now - m);
         l[i] = l_pre[i] * exp_mprem[i] + l_now * exp_mnowm[i];
         s_m[ty * TM + i] = m;
         s_l[ty * TM + i] = l[i];
