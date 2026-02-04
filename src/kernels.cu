@@ -133,7 +133,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   float *s_q = (float*)smem;
   float *s_k = s_q + BM * dim;
   float *s_v = s_k + (BN + padding) * BD;
-  float *s_o = s_v + (BN + padding) * BD;
+  float *s_o = s_v + (BN + padding) * dim;
   float *s_m = s_o + BM * dim;
   float *s_l = s_m + BM;
   
@@ -153,16 +153,16 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   }
   #pragma unroll
   for(size_t c = 0;c < Tc;++c) {
-    /*
+    
     #pragma unroll
     for(size_t i = tid;i < BN * dim;i += block_size) {
       int x = i % dim;
       int y = i / dim;
-      s_k[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
+      //s_k[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
       s_v[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + x]) : float(0);
     }
     __syncthreads();
-    */
+    
     // sum[0]: ty tx 、 sum[1]: ty tx + Bc
     float sum[TM][TN] = {0.f};
     #pragma unroll
@@ -236,7 +236,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         s_l[ty * TM + i] = l[i];
     }
 
-    #pragma unroll
+    /*#pragma unroll
     for(size_t d = 0;d < dim;d += BD) {
         #pragma unroll
         for(size_t i = tid;i < BD * BN;i += block_size) {
@@ -245,9 +245,9 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             int y = i / BD;
             s_v[s_x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + g_x]) : float(0);
         }
-        __syncthreads();
+        __syncthreads();*/
         #pragma unroll
-        for(size_t j = 0;j < BD;++j) {
+        for(size_t j = 0;j < dim;++j) {
             float value[TM] = {0.f};
             #pragma unroll
             for(size_t i = 0;i < TN;i++) {
@@ -261,11 +261,11 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             for(size_t i = 0;i < TM;i++) {
                 value[i] = warp_reduce_sum<float>(value[i]);
                 if(laneid == 0)
-                    s_o[(ty * TM + i) * dim + j + d] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j + d] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
+                    s_o[(ty * TM + i) * dim + j] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
             }
         }
-        __syncthreads();
-    }
+        //__syncthreads();
+    //}
     k += BN * kv_stride;
     v += BN * kv_stride;
     kv_acc_len += BN;
@@ -443,9 +443,9 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       //12288 - qo: 2048 - kv: 8192 - lm: 128 = 1920
       constexpr int Br = 8;
       constexpr int Bc = 32;
-      constexpr int TM = 1;
-      constexpr int TN = 2;
-      constexpr int BD = 64;
+      constexpr int TM = 2;
+      constexpr int TN = 4;
+      constexpr int BD = 32;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
