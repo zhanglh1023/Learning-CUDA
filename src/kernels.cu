@@ -161,7 +161,6 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
       //s_k[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
       s_v[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + x]) : float(0);
     }
-    __syncthreads();
     
     // sum[0]: ty tx 、 sum[1]: ty tx + Bc
     float sum[TM][TN] = {0.f};
@@ -445,7 +444,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int Bc = 32;
       constexpr int TM = 1;
       constexpr int TN = 4;
-      constexpr int BD = 8;
+      constexpr int BD = 16;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
