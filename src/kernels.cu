@@ -406,7 +406,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   case 16:
     {
       //12288 - qo: 8192 - kv: 2048 - lm: 512 = 1532
-      constexpr int Br = 32;
+      constexpr int Br = 16;
       constexpr int Bc = 32;
       constexpr int TM = 4;
       constexpr int TN = 4;
