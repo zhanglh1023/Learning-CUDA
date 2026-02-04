@@ -346,7 +346,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 1;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -363,7 +363,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 2;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -380,7 +380,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 4;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -397,7 +397,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 4;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -414,7 +414,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 4;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -431,7 +431,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 8;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
@@ -448,7 +448,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int BD = 32;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br), query_heads, batch_size);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = (((Br * TM) * head_dim + (Bc * TN) * BD) * 2 + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
       if(sram_bytes > max_sram_bytes) printf("sram over!\n");
       sram_bytes = min(sram_bytes, max_sram_bytes);
