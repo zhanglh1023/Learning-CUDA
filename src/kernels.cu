@@ -338,7 +338,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   {
   case 1:
     {
-      constexpr int Br = 32;
+      constexpr int Br = 16;
       constexpr int Bc = 32;
       constexpr int TM = 4;
       constexpr int TN = 4;
@@ -355,7 +355,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   case 2:
     // TM = (6128 / 2 - 16) / 32 = 95
     {
-      constexpr int Br = 32;
+      constexpr int Br = 16;
       constexpr int Bc = 32;
       constexpr int TM = 4;
       constexpr int TN = 4;
@@ -372,7 +372,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   case 4:
     {
       //12288 - qo: 4096 - kv: 4096 - lm: 1024
-      constexpr int Br = 32;
+      constexpr int Br = 16;
       constexpr int Bc = 32;
       constexpr int TM = 4;
       constexpr int TN = 4;
