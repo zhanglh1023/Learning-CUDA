@@ -124,7 +124,6 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   o += batch_id * q_len * q_stride + head_id * dim + bx * BM * q_stride;
   
   const int Tc = CEIL(kv_len, BN);
-  const int TD = CEIL(dim, BD);
   
   extern __shared__ char smem[];
   
@@ -171,9 +170,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         #pragma unroll
         for(size_t i = tid;i < BD * BN;i+=block_size) {
             int s_x = i % BD;
-            int g_x = s_x + d;
             int y = i / BD;
-            s_k[s_x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + g_x]) : float(0);
+            s_k[s_x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + s_x + d]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -343,8 +341,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     {
       constexpr int Br = 32;
       constexpr int Bc = 32;
-      constexpr int TM = 8;
-      constexpr int TN = 8;
+      constexpr int TM = 4;
+      constexpr int TN = 4;
       constexpr int BD = 1;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
