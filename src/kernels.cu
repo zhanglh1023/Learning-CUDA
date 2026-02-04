@@ -440,10 +440,10 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     break;
   case 64:
     {
-      //12288 - qo: 2048 - kv: 8192 - lm: 128 = 1920
+      //12288 - qo: 2048 - kv: 8192 - lm: 128 = 1920 2048 9216
       constexpr int Br = 8;
       constexpr int Bc = 32;
-      constexpr int TM = 2;
+      constexpr int TM = 1;
       constexpr int TN = 4;
       constexpr int BD = 8;
       constexpr int padding = 0;
