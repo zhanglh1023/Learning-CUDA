@@ -427,7 +427,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int Bc = 32;
       constexpr int TM = 2;
       constexpr int TN = 4;
-      constexpr int BD = 16;
+      constexpr int BD = 32;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
