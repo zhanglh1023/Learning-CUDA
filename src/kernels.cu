@@ -176,7 +176,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         for(size_t i = tid;i < KBD * BN;i+=block_size) {
             int s_x = i % KBD;
             int y = i / KBD;
-            s_k[s_x * (BN + paddingk) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + s_x + d]) : float(0);
+            s_k[s_x * (BN + paddingk) + y] = ((kv_acc_len + y && s_x + d < dim) < kv_len) ? static_cast<float>(k[y * kv_stride + s_x + d]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -248,7 +248,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             int s_x = i % VBD;
             int g_x = i % VBD + d;
             int y = i / VBD;
-            s_v[s_x * (BN + 1) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + g_x]) : float(0);
+            s_v[s_x * (BN + 1) + y] = ((kv_acc_len + y) < kv_len && g_x < dim) ? static_cast<float>(v[y * kv_stride + g_x]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -265,7 +265,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             #pragma unroll
             for(size_t i = 0;i < TM;i++) {
                 value[i] = warp_reduce_sum<float>(value[i]);
-                if(laneid == 0)
+                if(laneid == 0 && j + d < dim)
                     s_o[(ty * TM + i) * dim + j + d] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j + d] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
             }
         }
