@@ -50,7 +50,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const int tid = threadIdx.x;
 
-  T value = 0;
+  T value = (T)(0);
   #pragma unroll
   for(size_t i = 0;i < NUM_PER_WARP;i++) {
     size_t x = idx + i * STRIDE;
@@ -65,7 +65,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   }
   __syncthreads();
   if(warpid == 0) {
-    value = smem[laneid];
+    value = laneid < 8 ? smem[laneid] : T(0);
     value = warp_reduce_sum<T>(value);
     if(laneid == 0) {atomicAdd(output, value);}
   }
