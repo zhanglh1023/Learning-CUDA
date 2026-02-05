@@ -97,6 +97,7 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   }
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
   return T((*output_h));
 }
 
