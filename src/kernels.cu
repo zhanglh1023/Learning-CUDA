@@ -98,7 +98,8 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   }
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
-  std::cout<<(*output_h)<<"\n";
+  cudaFree(input_d);
+  cudaFree(output_d);
   return T((*output_h));
 }
 
@@ -456,6 +457,10 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     break;
   }
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
+    cudaFree(d_q);
+    cudaFree(d_k);
+    cudaFree(d_v);
+    cudaFree(d_o);
 }
 
 // *********************************************************************
