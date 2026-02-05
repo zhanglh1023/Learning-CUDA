@@ -73,6 +73,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
 template <typename T>
 T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   // TODO: Implement the trace function
+  std::cout<<rows<<" "<<cols<<"\n";
   size_t n = rows * cols;
   size_t bytes = n * sizeof(T);
   T *input_d, *output_d;
