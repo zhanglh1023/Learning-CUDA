@@ -158,7 +158,6 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     for(size_t i = tid;i < BN * dim;i += block_size) {
       int x = i % dim;
       int y = i / dim;
-      //s_k[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(k[y * kv_stride + x]) : float(0);
       s_v[x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + x]) : float(0);
     }
     
@@ -235,36 +234,24 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         s_l[ty * TM + i] = l[i];
     }
 
-    /*#pragma unroll
-    for(size_t d = 0;d < dim;d += BD) {
+    #pragma unroll
+    for(size_t j = 0;j < dim;++j) {
+        float value[TM] = {0.f};
         #pragma unroll
-        for(size_t i = tid;i < BD * BN;i += block_size) {
-            int s_x = i % BD;
-            int g_x = i % BD + d;
-            int y = i / BD;
-            s_v[s_x * (BN + padding) + y] = ((kv_acc_len + y) < kv_len) ? static_cast<float>(v[y * kv_stride + g_x]) : float(0);
-        }
-        __syncthreads();*/
-        #pragma unroll
-        for(size_t j = 0;j < dim;++j) {
-            float value[TM] = {0.f};
+        for(size_t i = 0;i < TN;i++) {
+            float tmp = s_v[j * (BN + padding) + tx * TN + i];
             #pragma unroll
-            for(size_t i = 0;i < TN;i++) {
-                float tmp = s_v[j * (BN + padding) + tx * TN + i];
-                #pragma unroll
-                for(size_t k = 0;k < TM;k++) {
-                    value[k] += p_now[k][i] * tmp;
-                }
-            }
-            #pragma unroll
-            for(size_t i = 0;i < TM;i++) {
-                value[i] = warp_reduce_sum<float>(value[i]);
-                if(laneid == 0)
-                    s_o[(ty * TM + i) * dim + j] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
+            for(size_t k = 0;k < TM;k++) {
+                value[k] += p_now[k][i] * tmp;
             }
         }
-        //__syncthreads();
-    //}
+        #pragma unroll
+        for(size_t i = 0;i < TM;i++) {
+            value[i] = warp_reduce_sum<float>(value[i]);
+            if(laneid == 0)
+                s_o[(ty * TM + i) * dim + j] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
+        }
+    }
     k += BN * kv_stride;
     v += BN * kv_stride;
     kv_acc_len += BN;
