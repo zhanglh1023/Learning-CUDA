@@ -312,12 +312,12 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     //return ;
   //}
   // TODO: Implement the flash attention functio
-  printf("batch_size : %d\n", batch_size);
-  printf("target_seq_len : %d\n", target_seq_len);
-  printf("src_seq_len : %d\n", src_seq_len);
-  printf("query_heads : %d\n", query_heads);
-  printf("kv_heads : %d\n", kv_heads);
-  printf("head_dim : %d\n", head_dim);
+  //printf("batch_size : %d\n", batch_size);
+  //printf("target_seq_len : %d\n", target_seq_len);
+  //printf("src_seq_len : %d\n", src_seq_len);
+  //printf("query_heads : %d\n", query_heads);
+  //printf("kv_heads : %d\n", kv_heads);
+  //printf("head_dim : %d\n", head_dim);
   size_t qo_size = batch_size * target_seq_len * query_heads * head_dim;
   size_t qo_bytes = qo_size * sizeof(T);
   size_t kv_size = batch_size * src_seq_len * kv_heads * head_dim;
