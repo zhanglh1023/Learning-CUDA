@@ -444,7 +444,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 2;
       constexpr int TN = 8;
       constexpr int KBD = 32;
-      constexpr int VBD = 4;
+      constexpr int VBD = 2;
       constexpr int paddingk = 2;
       constexpr int paddingv = 1;
       dim3 block(Br * Bc);
