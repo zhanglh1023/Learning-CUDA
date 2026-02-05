@@ -415,7 +415,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 16;
-      constexpr int padding = 2;
+      constexpr int padding = 1;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + 2 * padding * BD) * sizeof(float);
