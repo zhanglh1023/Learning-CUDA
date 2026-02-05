@@ -81,7 +81,7 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   cudaMalloc((void**)(&output_d), sizeof(T));
   cudaMemcpy(input_d, h_input.data(), bytes, cudaMemcpyHostToDevice);
   T *output_h = (T*)malloc(sizeof(T));
-  *output_h = 0;
+  *output_h = (T)0;
   cudaMemcpy(output_d, output_h, sizeof(T), cudaMemcpyHostToDevice);
   size_t diagonal = min(rows, cols);
   dim3 block(256);
@@ -98,6 +98,7 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
   }
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
+  std::cout<<(*output_h)<<"\n";
   return T((*output_h));
 }
 
