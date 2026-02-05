@@ -105,7 +105,7 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
 // flash_attn_v2:
 // feature ：增加thread在Br方向的tile, 减少online_softmax迭代次数，解决多次乘加带来的精度损失。同时减少对shared_memory的访问，性能提升150ms->38ms
 template<typename T, const int Br = 16, const int Bc = 32, 
-        const int TM = 1, const int TN = 2, const int KBD = 8, const VBD = 8, const int paddingk = 0, const int paddingv = 0>
+        const int TM = 1, const int TN = 2, const int KBD = 8, const int VBD = 8, const int paddingk = 0, const int paddingv = 0>
 __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o, 
                           const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal, const float scale) {
   const int BM = Br * TM;
