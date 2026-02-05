@@ -246,9 +246,8 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         #pragma unroll
         for(size_t i = tid;i < VBD * BN;i += block_size) {
             int s_x = i % VBD;
-            int g_x = i % VBD + d;
             int y = i / VBD;
-            s_v[s_x * (BN + 1) + y] = ((kv_acc_len + y) < kv_len && g_x < dim) ? static_cast<float>(v[y * kv_stride + g_x]) : float(0);
+            s_v[s_x * (BN + 1) + y] = ((kv_acc_len + y) < kv_len && s_x + d < dim) ? static_cast<float>(v[y * kv_stride + s_x + d]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -458,9 +457,9 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   case 64:
     {
       //12288 - qo: 2048 - kv: 8192 - lm: 128 = 1920 4096 6144
-      constexpr int Br = 16;
+      constexpr int Br = 32;
       constexpr int Bc = 32;
-      constexpr int TM = 2;
+      constexpr int TM = 1;
       constexpr int TN = 4;
       constexpr int KBD = 32;
       constexpr int VBD = 16;
