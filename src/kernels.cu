@@ -119,7 +119,6 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   const int tx = tid % Bc;
   const int ty = tid / Bc;
   const int laneid = tid % WARP_SZIE;
-  if(bx == 0 && tid == 0) printf("%d\n", dim);
   const int q_stride = gridDim.y * dim;
   const int kv_stride = kv_heads * dim;
   q += batch_id * q_len * q_stride + head_id * dim + bx * BM * q_stride;
