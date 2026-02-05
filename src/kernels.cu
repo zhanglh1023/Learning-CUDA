@@ -298,7 +298,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   //printf("src_seq_len : %d\n", src_seq_len);
   //printf("query_heads : %d\n", query_heads);
   //printf("kv_heads : %d\n", kv_heads);
-  printf("head_dim : %d\n", head_dim);
+  //printf("head_dim : %d\n", head_dim);
   size_t qo_size = batch_size * target_seq_len * query_heads * head_dim;
   size_t qo_bytes = qo_size * sizeof(T);
   size_t kv_size = batch_size * src_seq_len * kv_heads * head_dim;
@@ -430,7 +430,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int Br = 8;
       constexpr int Bc = 32;
       constexpr int TM = 2;
-      constexpr int TN = 2;
+      constexpr int TN = 4;
       constexpr int BD = 32;
       constexpr int padding = 0;
       dim3 block(Br * Bc);
