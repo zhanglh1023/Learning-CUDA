@@ -348,8 +348,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 2;
-      constexpr int paddingk = 16;
-      constexpr int paddingv = 16;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
@@ -366,8 +366,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 4;
-      constexpr int paddingk = 8;
-      constexpr int paddingv = 8;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
@@ -384,8 +384,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 8;
-      constexpr int paddingk = 4;
-      constexpr int paddingv = 4;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
@@ -402,8 +402,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 8;
-      constexpr int paddingk = 4;
-      constexpr int paddingv = 2;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
@@ -420,8 +420,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 4;
       constexpr int TN = 4;
       constexpr int BD = 16;
-      constexpr int paddingk = 2;
-      constexpr int paddingv = 1;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
@@ -438,8 +438,8 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int TM = 2;
       constexpr int TN = 2;
       constexpr int BD = 32;
-      constexpr int paddingk = 1;
-      constexpr int paddingv = 1;
+      constexpr int paddingk = 0;
+      constexpr int paddingv = 0;
       dim3 block(Br * Bc);
       dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
       int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN) * (BD + head_dim) + Br * TM * 2 + (paddingk + paddingv) * BD) * sizeof(float);
