@@ -178,7 +178,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             int s_x = i % KBD;
             int y = i / KBD;
             // s_x * (BN + paddingk) + y
-            s_k[s_x * (BN + paddingk) + y] = ((kv_acc_len + y && s_x + d < dim) < kv_len) ? static_cast<float>(k[y * kv_stride + s_x + d]) : float(0);
+            s_k[s_x * (BN + paddingk) + y] = (kv_acc_len + y < kv_len && s_x + d < dim) ? static_cast<float>(k[y * kv_stride + s_x + d]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -210,31 +210,30 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     float exp_mnowm[TM];
     #pragma unroll
     for(size_t i = 0;i < TM;i++) {
-        float m_sum[TN]; //带casual掩码的sum
-        float m_now;//tile每行的最大值
-        m_now = -__FLT_MAX__;
+        float m_sum; //带casual掩码的sum
+        float m_now = -__FLT_MAX__;//tile每行的最大值
         float l_now = 0.f;//tile每行的和
-        float m_pre;//tile每行上一个Bc的最大值
-        m_pre = s_m[ty * TM + i];
+        float m_pre = s_m[ty * TM + i];//tile每行上一个Bc的最大值
         l_pre[i] = s_l[ty * TM + i];
-        float m;//加上当前Bc整体tile行的最大值
-        m = m_pre;
+        float m = m_pre;//加上当前Bc整体tile行的最大值
         l[i] = l_pre[i];
         #pragma unroll
-        for(size_t j = 0;j < TN;j++) {
+        for(size_t j = 0;j < TN;++j) {
             sum[i][j] *= scale;
-            m_sum[j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * TN + j < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * TN + j)) ? sum[i][j] : -__FLT_MAX__;
-            m_now = fmaxf(m_now, m_sum[j]);
-            sum[i][j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * TN + j < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * TN + j)) ? expf(sum[i][j]) : 0.f;
-            l_now += sum[i][j];
+            m_sum = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4 < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4)) ? sum[i][j] : -__FLT_MAX__;
+            if(((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4 < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4))
+                m_now = fmaxf(m_now, m_sum);
         }
         m_now = warp_reduce_max<float>(m_now);
-        float expf_m_now = expf(-m_now);
-        l_now *= expf_m_now;
+        for(size_t j = 0;j < TN;++j) {
+            sum[i][j] = (((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4 < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4)) ? expf(sum[i][j]-m_now) : 0.f;
+            if(((q_acc_len + ty * TM + i < q_len) && (kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4 < kv_len)) && (!is_causal || q_acc_len + ty * TM + i >= kv_acc_len + tx * 4 + j % 4 + j / 4 * Bc * 4))
+                l_now += sum[i][j];
+        }
         l_now = warp_reduce_sum<float>(l_now);
         #pragma unroll
         for(size_t j = 0;j < TN;j++)
-            p_now[i][j] = sum[i][j] * expf_m_now;
+            p_now[i][j] = sum[i][j];
         m = fmaxf(m, m_now);
         exp_mprem[i] = expf(m_pre - m);
         exp_mnowm[i] = expf(m_now - m);
@@ -276,6 +275,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     k += BN * kv_stride;
     v += BN * kv_stride;
     kv_acc_len += BN;
+    __syncthreads();
   }
   
   #pragma unroll
