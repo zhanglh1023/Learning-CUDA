@@ -91,9 +91,9 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
     const int NUM_PER_WARP = CEIL(diagonal, 256);
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   } else {
-    grid.x = (CEIL(CEIL(diagonal, 16), 256));
-    const int NUM_PER_WARP = 16;
-    const int STRIDE = 256 * grid.x;
+    grid.x = (CEIL(CEIL(diagonal, 8), 1024));
+    const int NUM_PER_WARP = 8;
+    const int STRIDE = 1024 * grid.x;
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   }
   cudaMemcpy(output_h, output_d, sizeof(T), cudaMemcpyDeviceToHost);
