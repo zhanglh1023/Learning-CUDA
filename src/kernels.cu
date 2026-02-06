@@ -276,7 +276,6 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
     k += BN * kv_stride;
     v += BN * kv_stride;
     kv_acc_len += BN;
-    __syncthreads();
   }
   
   #pragma unroll
