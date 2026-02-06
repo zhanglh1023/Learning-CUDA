@@ -109,7 +109,7 @@ template<typename T, const int Br = 16, const int Bc = 32,
         const int TM = 1, const int TN = 2, const int KBD = 8, const int VBD = 8, const int paddingk = 0, const int paddingv = 0>
 __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o, 
                           const int q_len, const int kv_len, const int kv_heads, const int dim, const bool is_causal, const float scale) {
-  const int BM = Br * TM;
+const int BM = Br * TM;
   const int BN = Bc * TN;
   const int bx = blockIdx.x;
   const int block_size = blockDim.x;
@@ -137,7 +137,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
   float *s_q = (float*)smem;
   float *s_k = s_q + BM * dim;
   float *s_v = s_k + (BN + paddingk) * KBD;
-  float *s_o = s_v + (BN + paddingv) * VBD;
+  float *s_o = s_v + (BN + paddingv) * VBD * 2;
   float *s_m = s_o + BM * dim;
   float *s_l = s_m + BM;
   
@@ -241,15 +241,16 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
         s_m[ty * TM + i] = m;
         s_l[ty * TM + i] = l[i];
     }
-
+    
     #pragma unroll
     for(size_t d = 0;d < dim;d += VBD) {
+        int idx = (d / VBD) % 2;
         #pragma unroll
         for(size_t i = tid;i < VBD * BN;i += block_size) {
             int s_x = i % VBD;
             int y = i / VBD;
             //s_x * (BN + paddingv) + y
-            s_v[s_x * (BN + paddingv) + y] = ((kv_acc_len + y) < kv_len && s_x + d < dim) ? static_cast<float>(v[y * kv_stride + s_x + d]) : float(0);
+            s_v[idx * (BN + paddingv) * VBD + s_x * (BN + paddingv) + y] = ((kv_acc_len + y) < kv_len && s_x + d < dim) ? static_cast<float>(v[y * kv_stride + s_x + d]) : float(0);
         }
         __syncthreads();
         #pragma unroll
@@ -257,7 +258,7 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
             float value[TM] = {0.f};
             #pragma unroll
             for(size_t i = 0;i < TN;i+=4) {
-                float4 tmp = LDST128BITS(s_v[j * (BN + paddingv) + tx * 4 + i * Bc]);//j * (BN + paddingv) + tx * TN + i
+                float4 tmp = LDST128BITS(s_v[idx * (BN + paddingv) * VBD + j * (BN + paddingv) + tx * 4 + i * Bc]);//j * (BN + paddingv) + tx * TN + i
                 #pragma unroll
                 for(size_t k = 0;k < TM;k++) {
                     value[k] += p_now[k][i] * tmp.x + p_now[k][i + 1] * tmp.y + p_now[k][i + 2] * tmp.z + p_now[k][i + 3] * tmp.w;
@@ -270,14 +271,12 @@ __global__ void flash_attn_kernel(T *q, T *k, T *v, T *o,
                     s_o[(ty * TM + i) * dim + j + d] = (q_acc_len + ty * TM + i < q_len) ? (s_o[(ty * TM + i) * dim + j + d] * exp_mprem[i] * l_pre[i] + value[i] * exp_mnowm[i]) / l[i] : 0.f;   
             }
         }
-        __syncthreads();
     }
     k += BN * kv_stride;
     v += BN * kv_stride;
     kv_acc_len += BN;
-    __syncthreads();
   }
-  
+  __syncthreads();
   #pragma unroll
   for(size_t i = tid;i < BM * dim;i += block_size) {
     int x = i % dim;
