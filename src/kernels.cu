@@ -55,7 +55,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   #pragma unroll
   for(size_t i = 0;i < NUM_PER_WARP;i++) {
     size_t x = idx + i * STRIDE;
-    if(x < n) value += input[x * cols + x];
+    if(x < n) value += (x * cols + x < n) ? input[x * cols + x] : 0.f;
   }
   value = warp_reduce_sum<T>(value);
   const int warpid = tid / 32;
@@ -91,8 +91,8 @@ T trace(const std::vector<T>& h_input, size_t rows, size_t cols) {
     const int NUM_PER_WARP = CEIL(diagonal, 256);
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   } else {
-    grid.x = (CEIL(CEIL(diagonal, 8), 1024));
-    const int NUM_PER_WARP = 8;
+    grid.x = (CEIL(CEIL(diagonal, 4), 1024));
+    const int NUM_PER_WARP = 4;
     const int STRIDE = 1024 * grid.x;
     trace_kernel<T><<<grid, block>>>(input_d, output_d, cols, diagonal, STRIDE, NUM_PER_WARP);
   }
