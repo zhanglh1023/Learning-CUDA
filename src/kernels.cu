@@ -66,7 +66,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   }
   __syncthreads();
   if(warpid == 0) {
-    value = laneid < 8 ? smem[laneid] : T(0);
+    value = laneid < CEIL(blockDim.x, WARP_SZIE) ? smem[laneid] : T(0);
     value = warp_reduce_sum<T>(value);
     if(laneid == 0) {atomicAdd(output, value);}
   }
