@@ -5,6 +5,7 @@
 
 #define CEIL(N, M) (((N) + (M) - 1) / (M))
 #define WARP_SZIE 32
+#define LDST128BITS(value) (reinterpret_cast<float4*>(&(value))[0])
 
 template<typename T>
 __device__ __forceinline__ T warp_reduce_sum(T value) {
