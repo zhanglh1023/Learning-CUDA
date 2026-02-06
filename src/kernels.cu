@@ -55,7 +55,7 @@ __global__ void trace_kernel(T *input, T *output, int cols, int n, const int STR
   #pragma unroll
   for(size_t i = 0;i < NUM_PER_WARP;i++) {
     size_t x = idx + i * STRIDE;
-    if(x < n) value += (x < n) ? input[x * cols + x] : 0.f;
+    value += (x < n) ? input[x * cols + x] : 0.f;
   }
   value = warp_reduce_sum<T>(value);
   const int warpid = tid / 32;
