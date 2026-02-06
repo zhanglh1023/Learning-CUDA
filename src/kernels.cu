@@ -483,7 +483,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
     cudaMemcpy(h_o.data(), d_o, qo_bytes, cudaMemcpyDeviceToHost);
     float mx = 0.f;
     for(int i = 0;i < qo_size;i++) {
-      mx = max(mx, static_cast<T>(qo[i]));
+      mx = max(mx, static_cast<T>(h_o[i]));
     }
     printf("mx: %d\n", mx);
     cudaFree(d_q);
