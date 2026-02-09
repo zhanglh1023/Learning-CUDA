@@ -133,7 +133,7 @@ const int BM = Br * TM;
   v += batch_id * kv_len * kv_stride + kv_head_id * dim;
   o += batch_id * q_len * q_stride + head_id * dim + bx * BM * q_stride;
   
-  const int Tc = CEIL(kv_len, BN);
+  const int Tc = CEIL((is_causal ? min((bx + 1) * BM, kv_len) : kv_len), BN);
   
   extern __shared__ char smem[];
   
