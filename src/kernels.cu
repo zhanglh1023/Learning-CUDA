@@ -309,6 +309,9 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
   cudaMemcpy(d_q, h_q.data(), qo_bytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_k, h_k.data(), kv_bytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_v, h_v.data(), kv_bytes, cudaMemcpyHostToDevice);
+  cudaFuncSetAttribute(                                                      
+        flash_attn_kernel<               
+            T, Br, Bc, TM, TN, BD, padding>,  cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
   
   switch (head_dim)
   {
