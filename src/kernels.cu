@@ -1,6 +1,7 @@
 #include <vector>
 #include <cuda_fp16.h>
-
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "../tester/utils.h"
 
 #define CEIL(N, M) (((N) + (M) - 1) / (M))
