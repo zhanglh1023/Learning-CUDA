@@ -388,12 +388,15 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       constexpr int Br = 32;
       constexpr int Bc = 32;
       constexpr int TM = 2;
-      constexpr int TN = 8;
+      constexpr int TN = 16;
       constexpr int BD = 8;
       constexpr int padding = 4;
       dim3 block(Br * Bc);
-      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);
-      int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN + padding) * BD * 2 + Br * TM * 2) * sizeof(float);
+      dim3 grid(CEIL(target_seq_len, Br * TM), query_heads, batch_size);//4096 + 128 + 
+      int sram_bytes = ((Br * TM) * head_dim * 2 + (Bc * TN + padding) * BD * 2 + Br * TM * 2) * sizeof(float);//24576
+      cudaFuncSetAttribute(                                                      
+        flash_attn_kernel<               
+            T, Br, Bc, TM, TN, BD, padding>,  cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
       flash_attn_kernel<T, Br, Bc, TM, TN, BD, padding><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
     break;
