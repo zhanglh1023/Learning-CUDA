@@ -297,7 +297,6 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
                     const std::vector<T>& h_v, std::vector<T>& h_o,
                     int batch_size, int target_seq_len, int src_seq_len, 
                     int query_heads, int kv_heads, int head_dim, bool is_causal) {    
-  if(is_causal) printf("true\n"); 
   size_t qo_size = batch_size * target_seq_len * query_heads * head_dim;
   size_t qo_bytes = qo_size * sizeof(T);
   size_t kv_size = batch_size * src_seq_len * kv_heads * head_dim;
@@ -397,6 +396,11 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
       cudaFuncSetAttribute(                                                      
         flash_attn_kernel<               
             T, Br, Bc, TM, TN, BD, padding>,  cudaFuncAttributeMaxDynamicSharedMemorySize, 98304);
+      int max_sram_size;
+      cudaDeviceGetAttribute(&max_sram_size, cudaDevAttrMaxSharedMemoryPerBlock, 0);
+      printf("Max shared memory: %d, requested shared memory: %d \n",
+           max_sram_size,
+           sram_bytes);
       flash_attn_kernel<T, Br, Bc, TM, TN, BD, padding><<<grid, block, sram_bytes>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, kv_heads, head_dim, is_causal, rsqrtf(head_dim));
     }
     break;
